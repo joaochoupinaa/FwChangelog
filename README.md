@@ -39,6 +39,26 @@ the page editor, for every template.
 Installing creates the `fw_changelog` database table and the
 `fw-changelog-view` permission.
 
+### Installing from the admin
+
+You can also install it from **Modules > New**, either from the modules
+directory (class name `FwChangelog`) or with **Add Module From URL**:
+
+```
+https://github.com/joaochoupinaa/FwChangelog/archive/refs/heads/master.zip
+```
+
+Since ProcessWire 3.0.163 these options are off by default. To enable them, add
+this to `/site/config.php`:
+
+```php
+$config->moduleInstall = array(
+    'directory' => true, // install from the modules directory
+    'upload' => false,   // install by uploading a zip file
+    'download' => true,  // install by downloading from a URL
+);
+```
+
 ## Usage
 
 Edit any page and open the **Settings** tab. The changelog block shows the

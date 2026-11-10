@@ -7,6 +7,12 @@
 (function ($) {
     'use strict';
 
+    // Translated texts come from the module (ProcessWire.config.FwChangelog); English is the fallback
+    var text = $.extend(
+        { loading: 'Loading…', error: 'Could not load the history.', close: 'Close' },
+        (window.ProcessWire && ProcessWire.config && ProcessWire.config.FwChangelog) || {}
+    );
+
     var $modal = null; // built on first open
     var $trigger = null; // link that opened the modal, to give focus back on close
 
@@ -28,7 +34,7 @@
             $box.append(html);
             $box.data('fwLoaded', true);
         }).fail(function () {
-            $box.find('.fw-changelog-loading').text('Could not load the history.');
+            $box.find('.fw-changelog-loading').text(text.error);
             $box.find('.fw-changelog-more button').prop('disabled', false);
         }).always(function () {
             $box.data('fwLoading', false);
@@ -47,9 +53,9 @@
             '<div class="fw-changelog-modal" role="dialog" aria-modal="true" aria-labelledby="fw-changelog-title">' +
                 '<div class="fw-changelog-dialog">' +
                     // Top-right corner of the card; stays put while the content scrolls
-                    '<button type="button" class="fw-changelog-close" aria-label="Close">&times;</button>' +
+                    '<button type="button" class="fw-changelog-close">&times;</button>' +
                     '<div class="fw-changelog-dialog-body">' +
-                        '<div class="fw-changelog"><p class="fw-changelog-loading">Loading…</p></div>' +
+                        '<div class="fw-changelog"><p class="fw-changelog-loading"></p></div>' +
                     '</div>' +
                 '</div>' +
             '</div>'
@@ -58,6 +64,8 @@
         // Set as text, never as HTML: the title is user content
         $el.find('#fw-changelog-title span').text(title ? '· ' + title : '');
         $el.find('.fw-changelog').data('url', url);
+        $el.find('.fw-changelog-close').attr('aria-label', text.close);
+        $el.find('.fw-changelog-loading').text(text.loading);
 
         // Click on the backdrop (outside the dialog) or on the close button
         $el.on('click', function (event) {

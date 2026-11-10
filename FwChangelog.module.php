@@ -172,10 +172,17 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
 
         $url = $config->urls->admin . 'page/edit/?id=' . (int) $editedPage->id . '&fw_changelog=1';
 
+        // Texts used by FwChangelog.js, passed from here so they can be translated
+        $config->js('FwChangelog', array(
+            'loading' => $this->_('Loading…'),
+            'error' => $this->_('Could not load the history.'),
+            'close' => $this->_('Close'),
+        ));
+
         /** @var InputfieldMarkup $f */
         $f = $this->wire('modules')->get('InputfieldMarkup');
         $f->attr('id+name', 'fw_changelog');
-        $f->label = 'Changelog';
+        $f->label = $this->_('Changelog');
         $f->icon = 'code-fork';
         $total = 0;
         $since = '';
@@ -192,17 +199,20 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         }
         $total = (int) $total;
 
+        $sanitizer = $this->wire('sanitizer');
         if ($total > 0) {
-            $sanitizer = $this->wire('sanitizer');
             $f->value =
-                $total . ($total === 1 ? ' edit' : ' edits') .
-                ' since ' . $sanitizer->entities(date('d/m/Y H:i:s', strtotime($since))) . ' - ' .
+                $sanitizer->entities(sprintf(
+                    $this->_n('%1$d edit since %2$s', '%1$d edits since %2$s', $total),
+                    $total,
+                    date('d/m/Y H:i:s', strtotime($since))
+                )) . ' - ' .
                 '<a href="#" class="fw-changelog-open"' .
                 ' data-url="' . $sanitizer->entities($url) . '"' .
                 ' data-title="' . $sanitizer->entities((string) $editedPage->get('title|name')) . '">' .
-                'View History</a>';
+                $sanitizer->entities($this->_('View History')) . '</a>';
         } else {
-            $f->value = 'No changes logged yet.';
+            $f->value = $sanitizer->entities($this->_('No changes logged yet.'));
         }
 
         $event->return->append($f);
@@ -284,11 +294,11 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
             $saves = $this->findSaves($page, $offset, $hasMore);
         } catch (\Exception $e) {
             $this->wire('log')->save('fw-changelog', "List for page $page->id: " . $e->getMessage());
-            return '<p class="fw-changelog-empty">Could not load the history.</p>';
+            return '<p class="fw-changelog-empty">' . $sanitizer->entities($this->_('Could not load the history.')) . '</p>';
         }
 
         if (empty($saves)) {
-            return $offset ? '' : '<p class="fw-changelog-empty">No changes logged yet.</p>';
+            return $offset ? '' : '<p class="fw-changelog-empty">' . $sanitizer->entities($this->_('No changes logged yet.')) . '</p>';
         }
 
         $out = '';
@@ -314,7 +324,7 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         if ($hasMore) {
             $out .=
                 '<p class="fw-changelog-more"><button type="button" class="ui-button ui-state-default" data-offset="' .
-                ($offset + self::SAVES_PER_PAGE) . '"><span class="ui-button-text">View older changes</span></button></p>';
+                ($offset + self::SAVES_PER_PAGE) . '"><span class="ui-button-text">' . $sanitizer->entities($this->_('View older changes')) . '</span></button></p>';
         }
 
         return $out;
@@ -369,28 +379,28 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         $type = $row['type'];
 
         $label = $sanitizer->entities($this->pathLabel($row['field'], (int) $row['language_id']));
-        if ($label === '') $label = 'Page';
-        if ($type === 'file_description') $label .= ' <small>(description)</small>';
+        if ($label === '') $label = $sanitizer->entities($this->_('Page'));
+        if ($type === 'file_description') $label .= ' <small>' . $sanitizer->entities($this->_('(description)')) . '</small>';
 
         // Events with no before/after values: one line, signed when something was added or removed
         $events = array(
-            'created' => array('+', 'Page created'),
-            'trashed' => array('-', 'Page moved to the trash'),
-            'restored' => array('+', 'Page restored from the trash'),
+            'created' => array('+', $this->_('Page created')),
+            'trashed' => array('-', $this->_('Page moved to the trash')),
+            'restored' => array('+', $this->_('Page restored from the trash')),
             'file_added' => array('+', (string) $row['new_value']),
             'file_removed' => array('-', (string) $row['old_value']),
-            'file_replaced' => array('', 'File replaced'),
-            'repeater_added' => array('+', 'Block added'),
-            'repeater_removed' => array('-', 'Block removed'),
-            'repeater_enabled' => array('', 'Block turned on'),
-            'repeater_disabled' => array('', 'Block turned off'),
+            'file_replaced' => array('', $this->_('File replaced')),
+            'repeater_added' => array('+', $this->_('Block added')),
+            'repeater_removed' => array('-', $this->_('Block removed')),
+            'repeater_enabled' => array('', $this->_('Block turned on')),
+            'repeater_disabled' => array('', $this->_('Block turned off')),
         );
 
         if (isset($events[$type])) {
             $values = $this->lineMarkup($events[$type][0], $sanitizer->entities($events[$type][1]));
         } else if ($row['old_value'] === null && $row['new_value'] === null) {
             // Value that is never stored (e.g. passwords)
-            $values = $this->lineMarkup('', 'Changed');
+            $values = $this->lineMarkup('', $sanitizer->entities($this->_('Changed')));
         } else {
             $values = $this->valuesMarkup(
                 $this->displayValue($row, (string) $row['old_value']),
@@ -398,7 +408,7 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
             );
         }
 
-        if ($row['truncated']) $values .= '<small class="fw-changelog-note">Value cut because it is too long.</small>';
+        if ($row['truncated']) $values .= '<small class="fw-changelog-note">' . $sanitizer->entities($this->_('Value cut because it is too long.')) . '</small>';
 
         return
             '<div class="fw-changelog-change">' .
@@ -444,7 +454,7 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
             return '<div class="fw-changelog-diff">' . $sanitizer->getTextTools()->diffMarkup($before, $after) . '</div>';
         }
 
-        if ($before === '' && $after === '') return $this->lineMarkup('', '(empty)');
+        if ($before === '' && $after === '') return $this->lineMarkup('', $sanitizer->entities($this->_('(empty)')));
 
         $out = '';
         if ($before !== '') $out .= $this->lineMarkup('-', $sanitizer->entities($before));
@@ -465,20 +475,20 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         if ($row['type'] === 'property') {
             if ($row['field'] === 'status') {
                 return strtr($value, array(
-                    'unpublished' => 'unpublished',
-                    'published' => 'published',
-                    'hidden' => 'hidden',
-                    'locked' => 'locked',
+                    'unpublished' => $this->_('unpublished'),
+                    'published' => $this->_('published'),
+                    'hidden' => $this->_('hidden'),
+                    'locked' => $this->_('locked'),
                 ));
             }
-            if ($row['field'] === 'language_active') return $value === '1' ? 'Yes' : 'No';
+            if ($row['field'] === 'language_active') return $value === '1' ? $this->_('Yes') : $this->_('No');
             return $value;
         }
 
         // Checkboxes are stored as 1 / empty
         $segments = explode(self::PATH_SEPARATOR, $row['field']);
         $field = $this->wire('fields')->get(end($segments));
-        if ($field && wireInstanceOf($field->type, 'FieldtypeCheckbox')) return $value === '1' ? 'Yes' : 'No';
+        if ($field && wireInstanceOf($field->type, 'FieldtypeCheckbox')) return $value === '1' ? $this->_('Yes') : $this->_('No');
 
         // Toggles are stored as 0 / 1 / 2: show the label the editor sees instead
         if ($field && $value !== '' && wireInstanceOf($field->type, 'FieldtypeToggle')) return $this->toggleLabel($field, $value);
@@ -527,11 +537,11 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
     protected function pathLabel($path, $languageId = 0)
     {
         $properties = array(
-            'name' => 'Name (URL)',
-            'status' => 'Status',
-            'parent' => 'Parent page',
-            'template' => 'Template',
-            'language_active' => 'Active in language',
+            'name' => $this->_('Name (URL)'),
+            'status' => $this->_('Status'),
+            'parent' => $this->_('Parent page'),
+            'template' => $this->_('Template'),
+            'language_active' => $this->_('Active in language'),
         );
         $fields = $this->wire('fields');
         $labels = array();
@@ -539,7 +549,7 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         foreach ($path === '' ? array() : explode(self::PATH_SEPARATOR, $path) as $index => $segment) {
             if (preg_match('/^#(\d+)(?: (.+))?$/', $segment, $m)) {
                 // Block type label when one was stored (RepeaterMatrix), position otherwise
-                $labels[] = isset($m[2]) && $m[2] !== '' ? $m[2] : "item $m[1]";
+                $labels[] = isset($m[2]) && $m[2] !== '' ? $m[2] : sprintf($this->_('item %d'), (int) $m[1]);
             } else if ($index === 0 && isset($properties[$segment]) && !$fields->get($segment)) {
                 $labels[] = $properties[$segment];
             } else if ($field = $fields->get($segment)) {
@@ -1230,9 +1240,9 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         /** @var InputfieldInteger $f */
         $f = $modules->get('InputfieldInteger');
         $f->attr('name', 'retentionMonths');
-        $f->label = 'Retention (months)';
-        $f->description = 'Entries older than this number of months are deleted automatically.';
-        $f->notes = '0 = keep forever. Automatic cleanup needs the LazyCron module.';
+        $f->label = $this->_('Retention (months)');
+        $f->description = $this->_('Entries older than this number of months are deleted automatically.');
+        $f->notes = $this->_('0 = keep forever. Automatic cleanup needs the LazyCron module.');
         $f->attr('min', 0);
         $f->attr('value', (int) $this->retentionMonths);
         $f->columnWidth = 33;
@@ -1241,9 +1251,9 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         /** @var InputfieldInteger $f */
         $f = $modules->get('InputfieldInteger');
         $f->attr('name', 'maxValueLength');
-        $f->label = 'Maximum length per value (characters)';
-        $f->description = '"Before" and "after" values longer than this are cut.';
-        $f->notes = '0 = no limit.';
+        $f->label = $this->_('Maximum length per value (characters)');
+        $f->description = $this->_('"Before" and "after" values longer than this are cut.');
+        $f->notes = $this->_('0 = no limit.');
         $f->attr('min', 0);
         $f->attr('value', (int) $this->maxValueLength);
         $f->columnWidth = 33;
@@ -1252,9 +1262,9 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         /** @var InputfieldInteger $f */
         $f = $modules->get('InputfieldInteger');
         $f->attr('name', 'mergeMinutes');
-        $f->label = 'Merge consecutive changes (minutes)';
-        $f->description = 'Changes by the same user to the same field within this interval are kept as one entry.';
-        $f->notes = '0 = never merge.';
+        $f->label = $this->_('Merge consecutive changes (minutes)');
+        $f->description = $this->_('Changes by the same user to the same field within this interval are kept as one entry.');
+        $f->notes = $this->_('0 = never merge.');
         $f->attr('min', 0);
         $f->attr('value', (int) $this->mergeMinutes);
         $f->columnWidth = 34;
@@ -1263,9 +1273,9 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         /** @var InputfieldAsmSelect $f */
         $f = $modules->get('InputfieldAsmSelect');
         $f->attr('name', 'ignoredTemplates');
-        $f->label = 'Ignored templates';
-        $f->description = 'Pages using these templates are not logged.';
-        $f->notes = 'Repeater items are always logged on the page they belong to.';
+        $f->label = $this->_('Ignored templates');
+        $f->description = $this->_('Pages using these templates are not logged.');
+        $f->notes = $this->_('Repeater items are always logged on the page they belong to.');
         foreach ($this->wire('templates') as $template) {
             // Repeater item templates are handled through their owner page
             if (strpos($template->name, 'repeater_') === 0) continue;
@@ -1278,8 +1288,8 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         /** @var InputfieldAsmSelect $f */
         $f = $modules->get('InputfieldAsmSelect');
         $f->attr('name', 'ignoredFields');
-        $f->label = 'Ignored fields';
-        $f->description = 'Changes to these fields are not logged.';
+        $f->label = $this->_('Ignored fields');
+        $f->description = $this->_('Changes to these fields are not logged.');
         foreach ($this->wire('fields') as $field) {
             $f->addOption($field->name, $field->name);
         }

@@ -20,10 +20,10 @@
 
 /* Left of the separator: when and who */
 .fw-changelog-meta {
-    /* Just wide enough for the date; longer user names wrap */
-    flex: 0 0 70px;
+    flex: 0 0 auto;
     box-sizing: border-box;
-    min-width: 0;
+    min-width: 70px;
+    max-width: 140px;
     text-align: right;
     line-height: 1.4;
     overflow-wrap: anywhere;
@@ -31,6 +31,11 @@
 
 .fw-changelog-time {
     font-weight: 600;
+}
+
+.fw-changelog-time,
+.fw-changelog-date {
+    white-space: nowrap;
 }
 
 .fw-changelog-date,

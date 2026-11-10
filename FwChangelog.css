@@ -1,0 +1,275 @@
+/* FwChangelog: page changelog, shown in a modal opened from the Settings tab of the page editor */
+
+/* ---------- Compact list: one entry per save ---------- */
+
+.fw-changelog-save {
+    display: flex;
+    gap: 14px;
+    padding: 14px 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fw-changelog-save:first-of-type {
+    padding-top: 0;
+    border-top: none;
+}
+
+.fw-changelog-save:last-of-type {
+    padding-bottom: 0;
+}
+
+/* Left of the separator: when and who */
+.fw-changelog-meta {
+    /* Just wide enough for the date; longer user names wrap */
+    flex: 0 0 70px;
+    box-sizing: border-box;
+    min-width: 0;
+    text-align: right;
+    line-height: 1.4;
+    overflow-wrap: anywhere;
+}
+
+.fw-changelog-time {
+    font-weight: 600;
+}
+
+.fw-changelog-date,
+.fw-changelog-user {
+    font-size: 0.85em;
+    color: #737373;
+}
+
+/* Right of the separator: the changed fields */
+.fw-changelog-changes {
+    flex: 1;
+    min-width: 0;
+    padding-left: 14px;
+    border-left: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+.fw-changelog-change + .fw-changelog-change {
+    margin-top: 12px;
+}
+
+.fw-changelog-field {
+    margin-bottom: 4px;
+    font-size: 0.9em;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.fw-changelog-field small {
+    font-weight: normal;
+    color: #737373;
+}
+
+/* Old value stacked over the new one, joined into one rounded block */
+.fw-changelog-values {
+    border-radius: 4px;
+    overflow: hidden;
+    font-size: 0.9em;
+    line-height: 1.5;
+}
+
+.fw-changelog-line {
+    display: flex;
+    gap: 8px;
+    padding: 3px 8px;
+}
+
+.fw-changelog-sign {
+    flex: none;
+    width: 0.8em;
+    text-align: center;
+    user-select: none;
+}
+
+/* Long values scroll inside their line instead of stretching the modal */
+.fw-changelog-text {
+    flex: 1;
+    min-width: 0;
+    max-height: 14em;
+    overflow: auto;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.fw-changelog-del {
+    background: rgba(220, 53, 69, 0.12);
+    color: #a52834;
+}
+
+.fw-changelog-add {
+    background: rgba(40, 167, 69, 0.14);
+    color: #1c6b30;
+}
+
+/* Events and remarks with no before/after value */
+.fw-changelog-event {
+    background: rgba(0, 0, 0, 0.04);
+    color: #737373;
+    font-style: italic;
+}
+
+/* Paragraph-sized text: one block with the changed words highlighted */
+.fw-changelog-diff {
+    max-height: 14em;
+    overflow: auto;
+    padding: 6px 8px;
+    background: rgba(0, 0, 0, 0.04);
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+}
+
+.fw-changelog-diff del {
+    padding: 1px 3px;
+    border-radius: 3px;
+    background: rgba(220, 53, 69, 0.18);
+    color: #a52834;
+    text-decoration: line-through;
+}
+
+.fw-changelog-diff ins {
+    padding: 1px 3px;
+    border-radius: 3px;
+    background: rgba(40, 167, 69, 0.22);
+    color: #1c6b30;
+    text-decoration: none;
+}
+
+.fw-changelog-empty,
+.fw-changelog-loading {
+    color: #737373;
+    font-style: italic;
+}
+
+.fw-changelog-note {
+    display: block;
+    padding: 3px 8px;
+    color: #737373;
+}
+
+.fw-changelog-more {
+    margin: 0;
+}
+
+/* Narrow screens: when and who above the changes instead of beside them */
+@media (max-width: 600px) {
+    .fw-changelog-save {
+        display: block;
+    }
+
+    .fw-changelog-meta {
+        margin-bottom: 8px;
+        text-align: left;
+    }
+
+    .fw-changelog-changes {
+        padding-left: 0;
+        border-left: none;
+    }
+}
+
+/* ---------- Modal ---------- */
+
+.fw-changelog-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    padding: 4vh 16px;
+    background: rgba(0, 0, 0, 0.5);
+}
+
+.fw-changelog-modal.fw-changelog-modal-open {
+    display: block;
+}
+
+/* The page behind the modal must not scroll */
+body.fw-changelog-noscroll {
+    overflow: hidden;
+}
+
+.fw-changelog-dialog {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    box-sizing: border-box;
+    max-width: 1100px;
+    max-height: 92vh;
+    margin: 0 auto;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
+}
+
+/* Close ✕ in the top-right corner of the modal card, drawn as a thin two-bar cross */
+.fw-changelog-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    z-index: 1;
+    width: 32px;
+    height: 32px;
+    background: transparent;
+    border: none;
+    border-radius: 9999px;
+    cursor: pointer;
+    padding: 0;
+    font-size: 0;
+}
+
+.fw-changelog-close::before,
+.fw-changelog-close::after {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 16px;
+    height: 2px;
+    background: #404040;
+}
+
+.fw-changelog-close::before {
+    transform: translate(-50%, -50%) rotate(45deg);
+}
+
+.fw-changelog-close::after {
+    transform: translate(-50%, -50%) rotate(-45deg);
+}
+
+.fw-changelog-close:hover {
+    opacity: 0.7;
+}
+
+.fw-changelog-close:focus-visible {
+    outline: 2px solid #404040;
+    outline-offset: 2px;
+}
+
+.fw-changelog-dialog-body {
+    padding: 20px;
+    overflow-y: auto;
+}
+
+.fw-changelog-dialog-body .fw-changelog-save:last-of-type {
+    margin-bottom: 0;
+}
+
+.fw-changelog-dialog-body .fw-changelog-more {
+    margin-top: 1.5em;
+    text-align: center;
+}
+
+@media (max-width: 600px) {
+    .fw-changelog-modal {
+        padding: 0;
+    }
+
+    .fw-changelog-dialog {
+        max-height: 100vh;
+        min-height: 100vh;
+        border-radius: 0;
+    }
+
+}

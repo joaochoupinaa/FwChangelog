@@ -154,8 +154,34 @@
     color: #737373;
 }
 
+.fw-changelog-page {
+    margin-bottom: 8px;
+    font-weight: 600;
+    overflow-wrap: anywhere;
+}
+
+.fw-changelog-page small {
+    margin-left: 4px;
+    font-weight: normal;
+    color: #737373;
+}
+
+.fw-changelog-dashboard {
+    margin-top: 20px;
+}
+
+.fw-changelog-reset {
+    margin-left: 10px;
+}
+
+.fw-changelog-summary {
+    margin: 0 0 14px;
+    color: #737373;
+}
+
 .fw-changelog-more {
-    margin: 0;
+    margin: 14px 0 0;
+    text-align: center;
 }
 
 /* Narrow screens: when and who above the changes instead of beside them */

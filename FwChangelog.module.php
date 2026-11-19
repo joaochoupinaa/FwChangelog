@@ -9,6 +9,7 @@ namespace ProcessWire;
  * who changed them and when, and shows that history in the Settings tab of the
  * page editor.
  *
+ * @property string $displayMode Where the history is shown: "modal" or "inline"
  * @property int $retentionMonths Months to keep entries (0 = keep forever)
  * @property int $maxValueLength Max characters stored per value (0 = no limit)
  * @property int $mergeMinutes Window for merging consecutive edits of the same field by the same user (0 = never merge)
@@ -29,6 +30,12 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
     const PERMISSION_VIEW = 'fw-changelog-view';
 
     /**
+     * Display modes for the history in the page editor
+     */
+    const DISPLAY_MODAL = 'modal';
+    const DISPLAY_INLINE = 'inline';
+
+    /**
      * Default configuration values
      *
      * @return array
@@ -36,6 +43,7 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
     public static function getDefaults()
     {
         return array(
+            'displayMode' => self::DISPLAY_MODAL,
             'retentionMonths' => 12,
             'maxValueLength' => 20000,
             'mergeMinutes' => 10,
@@ -152,9 +160,12 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
     }
 
     /**
-     * Append the changelog block to the Settings tab: the number of logged
-     * changes and a link that opens the history in a modal. FwChangelog.js builds
-     * the modal and loads its content the first time it is opened.
+     * Append the changelog block to the Settings tab, in one of two ways:
+     *
+     * - modal: the number of logged changes and a link that opens the history in
+     *   a modal, built by FwChangelog.js the first time it is opened;
+     * - inline: a closed block that ProcessWire loads with AJAX when it is opened,
+     *   like the core "What pages link to this page?" block.
      *
      * @param HookEvent $event
      */
@@ -163,6 +174,7 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         $editedPage = $event->object->getPage();
         if (!$editedPage || !$editedPage->id) return;
         $config = $this->wire('config');
+        $sanitizer = $this->wire('sanitizer');
 
         // Cache-busted by file modification time, so an updated file is never served stale
         foreach (array('css' => $config->styles, 'js' => $config->scripts) as $extension => $assets) {
@@ -184,29 +196,26 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         $f->attr('id+name', 'fw_changelog');
         $f->label = $this->_('Changelog');
         $f->icon = 'code-fork';
-        $total = 0;
-        $since = '';
-        try {
-            $query = $this->wire('database')->prepare(
-                'SELECT COUNT(*), MIN(created) FROM `' . self::TABLE_NAME . '` WHERE pages_id=:pages_id'
-            );
-            $query->bindValue(':pages_id', (int) $editedPage->id, \PDO::PARAM_INT);
-            $query->execute();
-            list($total, $since) = $query->fetch(\PDO::FETCH_NUM);
-            $query->closeCursor();
-        } catch (\Exception $e) {
-            $this->wire('log')->save('fw-changelog', "Count for page $editedPage->id: " . $e->getMessage());
-        }
-        $total = (int) $total;
 
-        $sanitizer = $this->wire('sanitizer');
-        if ($total > 0) {
+        if ($this->displayMode === self::DISPLAY_INLINE) {
+            $f->collapsed = Inputfield::collapsedYesAjax;
+            // Only the AJAX request made when the block is opened builds the history
+            if ($this->wire('input')->get('renderInputfieldAjax') === $f->attr('id')) {
+                $summary = $this->summaryText($editedPage);
+                $f->value =
+                    '<div class="fw-changelog fw-changelog-inline" data-url="' . $sanitizer->entities($url) . '">' .
+                    ($summary !== '' ? '<p class="fw-changelog-summary">' . $sanitizer->entities($summary) . '</p>' : '') .
+                    $this->renderList($editedPage) .
+                    '</div>';
+            }
+            $event->return->append($f);
+            return;
+        }
+
+        $summary = $this->summaryText($editedPage);
+        if ($summary !== '') {
             $f->value =
-                $sanitizer->entities(sprintf(
-                    $this->_n('%1$d edit since %2$s', '%1$d edits since %2$s', $total),
-                    $total,
-                    date('d/m/Y H:i:s', strtotime($since))
-                )) . ' - ' .
+                $sanitizer->entities($summary) . ' - ' .
                 '<a href="#" class="fw-changelog-open"' .
                 ' data-url="' . $sanitizer->entities($url) . '"' .
                 ' data-title="' . $sanitizer->entities((string) $editedPage->get('title|name')) . '">' .
@@ -216,6 +225,38 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         }
 
         $event->return->append($f);
+    }
+
+    /**
+     * "N edits since date" for a page, or '' when nothing is logged for it
+     *
+     * @param Page $page
+     * @return string Unescaped text
+     */
+    protected function summaryText(Page $page)
+    {
+        $total = 0;
+        $since = '';
+        try {
+            $query = $this->wire('database')->prepare(
+                'SELECT COUNT(*), MIN(created) FROM `' . self::TABLE_NAME . '` WHERE pages_id=:pages_id'
+            );
+            $query->bindValue(':pages_id', (int) $page->id, \PDO::PARAM_INT);
+            $query->execute();
+            list($total, $since) = $query->fetch(\PDO::FETCH_NUM);
+            $query->closeCursor();
+        } catch (\Exception $e) {
+            $this->wire('log')->save('fw-changelog', "Count for page $page->id: " . $e->getMessage());
+        }
+
+        $total = (int) $total;
+        if ($total < 1) return '';
+
+        return sprintf(
+            $this->_n('%1$d edit since %2$s', '%1$d edits since %2$s', $total),
+            $total,
+            date('d/m/Y H:i:s', strtotime($since))
+        );
     }
 
     /**
@@ -301,13 +342,37 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
             return $offset ? '' : '<p class="fw-changelog-empty">' . $sanitizer->entities($this->_('No changes logged yet.')) . '</p>';
         }
 
+        $out = $this->renderSaves($saves);
+
+        if ($hasMore) {
+            $out .=
+                '<p class="fw-changelog-more"><button type="button" class="ui-button ui-state-default" data-offset="' .
+                ($offset + self::SAVES_PER_PAGE) . '"><span class="ui-button-text">' . $sanitizer->entities($this->_('View older changes')) . '</span></button></p>';
+        }
+
+        return $out;
+    }
+
+    /**
+     * Render groups of changes: one entry per save, with when and who on the left
+     * and the changed fields on the right
+     *
+     * Also used by the dashboard (ProcessFwChangelog), which lists several pages
+     * and so shows which page each entry belongs to.
+     *
+     * @param array $saves Groups of database rows, each group holding the rows of one save of one page
+     * @param bool $withPage Show the page (title, link to edit it, template) above its changes
+     * @return string HTML
+     */
+    public function renderSaves(array $saves, $withPage = false)
+    {
         $out = '';
         foreach ($saves as $rows) {
             if (empty($rows)) continue;
             $first = $rows[0];
             $time = strtotime($first['created']);
 
-            $changes = '';
+            $changes = $withPage ? $this->pageLabel((int) $first['pages_id']) : '';
             foreach ($rows as $row) $changes .= $this->renderChange($row);
 
             $out .=
@@ -321,13 +386,38 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
                 '</div>';
         }
 
-        if ($hasMore) {
-            $out .=
-                '<p class="fw-changelog-more"><button type="button" class="ui-button ui-state-default" data-offset="' .
-                ($offset + self::SAVES_PER_PAGE) . '"><span class="ui-button-text">' . $sanitizer->entities($this->_('View older changes')) . '</span></button></p>';
+        return $out;
+    }
+
+    /**
+     * Markup naming the page an entry belongs to: its title linked to the page
+     * editor, and its template. Deleted pages are shown by id.
+     *
+     * @param int $pageId
+     * @return string Escaped HTML
+     */
+    protected function pageLabel($pageId)
+    {
+        $sanitizer = $this->wire('sanitizer');
+        $page = $this->wire('pages')->get($pageId);
+
+        if (!$page->id) {
+            return '<div class="fw-changelog-page">' .
+                $sanitizer->entities(sprintf($this->_('Deleted page #%d'), $pageId)) . '</div>';
         }
 
-        return $out;
+        $title = (string) $page->getUnformatted('title');
+        if ($title === '') $title = $page->name;
+        $title = $sanitizer->entities($title);
+        if ($page->editable()) {
+            $url = $this->wire('config')->urls->admin . 'page/edit/?id=' . (int) $page->id;
+            $title = '<a href="' . $sanitizer->entities($url) . '">' . $title . '</a>';
+        }
+
+        return
+            '<div class="fw-changelog-page">' . $title .
+            ' <small>' . $sanitizer->entities($page->path) . ' · ' . $sanitizer->entities($page->template->name) . '</small>' .
+            '</div>';
     }
 
     /**
@@ -1194,8 +1284,8 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
         try {
             $query = $this->wire('database')->prepare(
                 'INSERT INTO `' . self::TABLE_NAME . '` ' .
-                    '(pages_id, save_id, type, field, language_id, old_value, new_value, truncated, users_id, user_name, created) ' .
-                    'VALUES (:pages_id, :save_id, :type, :field, :language_id, :old_value, :new_value, :truncated, :users_id, :user_name, :created)'
+                    '(pages_id, templates_id, save_id, type, field, language_id, old_value, new_value, truncated, users_id, user_name, created) ' .
+                    'VALUES (:pages_id, :templates_id, :save_id, :type, :field, :language_id, :old_value, :new_value, :truncated, :users_id, :user_name, :created)'
             );
             foreach ($rows as $row) {
                 $truncated = 0;
@@ -1211,6 +1301,7 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
                 if ($this->mergeRow($page, $row, $values, $truncated, $created)) continue;
 
                 $query->bindValue(':pages_id', (int) $page->id, \PDO::PARAM_INT);
+                $query->bindValue(':templates_id', $page->template ? (int) $page->template->id : 0, \PDO::PARAM_INT);
                 $query->bindValue(':save_id', $saveId);
                 $query->bindValue(':type', $row['type']);
                 $query->bindValue(':field', isset($row['field']) ? $row['field'] : '');
@@ -1236,6 +1327,16 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
     public function getModuleConfigInputfields(InputfieldWrapper $inputfields)
     {
         $modules = $this->wire('modules');
+
+        /** @var InputfieldRadios $f */
+        $f = $modules->get('InputfieldRadios');
+        $f->attr('name', 'displayMode');
+        $f->label = $this->_('Display');
+        $f->description = $this->_('Where the history of a page is shown in the page editor.');
+        $f->addOption(self::DISPLAY_MODAL, $this->_('Modal: a link in the Settings tab opens the history in a modal'));
+        $f->addOption(self::DISPLAY_INLINE, $this->_('Inline: a block in the Settings tab shows the history when it is opened'));
+        $f->attr('value', $this->displayMode === self::DISPLAY_INLINE ? self::DISPLAY_INLINE : self::DISPLAY_MODAL);
+        $inputfields->add($f);
 
         /** @var InputfieldInteger $f */
         $f = $modules->get('InputfieldInteger');
@@ -1452,6 +1553,7 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
             CREATE TABLE IF NOT EXISTS `$table` (
                 `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
                 `pages_id` INT UNSIGNED NOT NULL,
+                `templates_id` INT UNSIGNED NOT NULL DEFAULT 0,
                 `save_id` CHAR(16) NOT NULL,
                 `type` VARCHAR(32) NOT NULL DEFAULT 'field',
                 `field` VARCHAR(255) NOT NULL DEFAULT '',
@@ -1464,7 +1566,9 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
                 `created` DATETIME NOT NULL,
                 PRIMARY KEY (`id`),
                 INDEX `pages_created` (`pages_id`, `created`),
-                INDEX `created` (`created`)
+                INDEX `created` (`created`),
+                INDEX `users_created` (`users_id`, `created`),
+                INDEX `templates_created` (`templates_id`, `created`)
             ) ENGINE=$engine DEFAULT CHARSET=$charset
         ");
     }
@@ -1478,10 +1582,50 @@ class FwChangelog extends WireData implements Module, ConfigurableModule
     }
 
     /**
-     * Schema changes between module versions go here
+     * Upgrade from an earlier version
+     *
+     * 1.2.0 adds the templates_id column and the indexes used by the dashboard,
+     * fills in the template of entries for pages that still exist, and installs
+     * the dashboard (ProcessFwChangelog), which a new install gets through "installs".
      *
      * @param int|string $fromVersion
      * @param int|string $toVersion
      */
-    public function ___upgrade($fromVersion, $toVersion) {}
+    public function ___upgrade($fromVersion, $toVersion)
+    {
+        $this->updateSchema();
+
+        $modules = $this->wire('modules');
+        if (!$modules->isInstalled('ProcessFwChangelog') && $modules->isInstallable('ProcessFwChangelog', true)) {
+            $modules->install('ProcessFwChangelog');
+        }
+    }
+
+    /**
+     * Bring a table created by an earlier version up to date; safe to run more than once
+     */
+    protected function updateSchema()
+    {
+        $database = $this->wire('database');
+        $table = self::TABLE_NAME;
+
+        if (!$database->columnExists($table, 'templates_id')) {
+            $database->exec("ALTER TABLE `$table` ADD `templates_id` INT UNSIGNED NOT NULL DEFAULT 0 AFTER `pages_id`");
+            $database->exec(
+                "UPDATE `$table` AS c JOIN `pages` AS p ON p.id=c.pages_id " .
+                "SET c.templates_id=p.templates_id WHERE c.templates_id=0"
+            );
+        }
+
+        foreach (array('users_created' => '`users_id`, `created`', 'templates_created' => '`templates_id`, `created`') as $index => $columns) {
+            $query = $database->prepare("SHOW INDEX FROM `$table` WHERE Key_name=:name");
+            $query->bindValue(':name', $index);
+            $query->execute();
+            $exists = (bool) $query->fetch();
+            $query->closeCursor();
+            if (!$exists) {
+                $database->exec("ALTER TABLE `$table` ADD INDEX `$index` ($columns)");
+            }
+        }
+    }
 }

@@ -1,8 +1,8 @@
 /**
- * FwChangelog: opens the page changelog in a modal from the Settings tab of
- * the page editor.
+ * FwChangelog: page changelog in the Settings tab of the page editor.
  *
- * Nothing is requested until the modal is opened for the first time.
+ * Modal mode: opens the history in a modal; nothing is requested until it is
+ * opened for the first time. Both modes: "View older changes" loads more entries.
  */
 (function ($) {
     'use strict';
@@ -73,12 +73,6 @@
         });
         $el.on('click', '.fw-changelog-close', close);
 
-        $el.on('click', '.fw-changelog-more button', function () {
-            var $button = $(this);
-            $button.prop('disabled', true);
-            load($el.find('.fw-changelog'), parseInt($button.data('offset'), 10) || 0);
-        });
-
         return $el.appendTo(document.body);
     }
 
@@ -103,6 +97,13 @@
         $trigger = $(this);
         if (!$modal) $modal = build($trigger.data('url'), $trigger.data('title'));
         open();
+    });
+
+    // In the modal and in the inline block 
+    $(document).on('click', '.fw-changelog-more button', function () {
+        var $button = $(this);
+        $button.prop('disabled', true);
+        load($button.closest('.fw-changelog'), parseInt($button.data('offset'), 10) || 0);
     });
 
     $(document).on('keydown', function (event) {

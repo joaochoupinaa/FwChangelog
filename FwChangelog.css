@@ -1,12 +1,38 @@
 /* FwChangelog: page changelog, shown in a modal opened from the Settings tab of the page editor */
 
+:root {
+    --fw-text: var(--pw-text-color, #1a1a1a);
+    --fw-muted: var(--pw-muted-color, #737373);
+    --fw-border: var(--pw-border-color, rgba(0, 0, 0, 0.1));
+    --fw-surface: var(--pw-blocks-background, #fff);
+    --fw-neutral-bg: light-dark(rgba(0, 0, 0, 0.04), rgba(255, 255, 255, 0.07));
+    --fw-del-bg: light-dark(rgba(220, 53, 69, 0.12), rgba(248, 81, 73, 0.18));
+    --fw-del-strong: light-dark(rgba(220, 53, 69, 0.18), rgba(248, 81, 73, 0.4));
+    --fw-del-text: light-dark(#a52834, #ffa198);
+    --fw-add-bg: light-dark(rgba(40, 167, 69, 0.14), rgba(46, 160, 67, 0.18));
+    --fw-add-strong: light-dark(rgba(40, 167, 69, 0.22), rgba(46, 160, 67, 0.4));
+    --fw-add-text: light-dark(#1c6b30, #7ee2a0);
+}
+
+@supports not (color: light-dark(#000, #fff)) {
+    :root {
+        --fw-neutral-bg: rgba(0, 0, 0, 0.04);
+        --fw-del-bg: rgba(220, 53, 69, 0.12);
+        --fw-del-strong: rgba(220, 53, 69, 0.18);
+        --fw-del-text: #a52834;
+        --fw-add-bg: rgba(40, 167, 69, 0.14);
+        --fw-add-strong: rgba(40, 167, 69, 0.22);
+        --fw-add-text: #1c6b30;
+    }
+}
+
 /* ---------- Compact list: one entry per save ---------- */
 
 .fw-changelog-save {
     display: flex;
     gap: 14px;
     padding: 14px 0;
-    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    border-top: 1px solid var(--fw-border);
 }
 
 .fw-changelog-save:first-of-type {
@@ -41,7 +67,7 @@
 .fw-changelog-date,
 .fw-changelog-user {
     font-size: 0.85em;
-    color: #737373;
+    color: var(--fw-muted);
 }
 
 /* Right of the separator: the changed fields */
@@ -49,7 +75,7 @@
     flex: 1;
     min-width: 0;
     padding-left: 14px;
-    border-left: 1px solid rgba(0, 0, 0, 0.1);
+    border-left: 1px solid var(--fw-border);
 }
 
 .fw-changelog-change + .fw-changelog-change {
@@ -65,7 +91,7 @@
 
 .fw-changelog-field small {
     font-weight: normal;
-    color: #737373;
+    color: var(--fw-muted);
 }
 
 /* Old value stacked over the new one, joined into one rounded block */
@@ -100,19 +126,19 @@
 }
 
 .fw-changelog-del {
-    background: rgba(220, 53, 69, 0.12);
-    color: #a52834;
+    background: var(--fw-del-bg);
+    color: var(--fw-del-text);
 }
 
 .fw-changelog-add {
-    background: rgba(40, 167, 69, 0.14);
-    color: #1c6b30;
+    background: var(--fw-add-bg);
+    color: var(--fw-add-text);
 }
 
 /* Events and remarks with no before/after value */
 .fw-changelog-event {
-    background: rgba(0, 0, 0, 0.04);
-    color: #737373;
+    background: var(--fw-neutral-bg);
+    color: var(--fw-muted);
     font-style: italic;
 }
 
@@ -121,7 +147,7 @@
     max-height: 14em;
     overflow: auto;
     padding: 6px 8px;
-    background: rgba(0, 0, 0, 0.04);
+    background: var(--fw-neutral-bg);
     white-space: pre-wrap;
     overflow-wrap: anywhere;
 }
@@ -129,29 +155,29 @@
 .fw-changelog-diff del {
     padding: 1px 3px;
     border-radius: 3px;
-    background: rgba(220, 53, 69, 0.18);
-    color: #a52834;
+    background: var(--fw-del-strong);
+    color: var(--fw-del-text);
     text-decoration: line-through;
 }
 
 .fw-changelog-diff ins {
     padding: 1px 3px;
     border-radius: 3px;
-    background: rgba(40, 167, 69, 0.22);
-    color: #1c6b30;
+    background: var(--fw-add-strong);
+    color: var(--fw-add-text);
     text-decoration: none;
 }
 
 .fw-changelog-empty,
 .fw-changelog-loading {
-    color: #737373;
+    color: var(--fw-muted);
     font-style: italic;
 }
 
 .fw-changelog-note {
     display: block;
     padding: 3px 8px;
-    color: #737373;
+    color: var(--fw-muted);
 }
 
 .fw-changelog-page {
@@ -163,7 +189,7 @@
 .fw-changelog-page small {
     margin-left: 4px;
     font-weight: normal;
-    color: #737373;
+    color: var(--fw-muted);
 }
 
 .fw-changelog-dashboard {
@@ -176,7 +202,7 @@
 
 .fw-changelog-summary {
     margin: 0 0 14px;
-    color: #737373;
+    color: var(--fw-muted);
 }
 
 .fw-changelog-more {
@@ -229,7 +255,8 @@ body.fw-changelog-noscroll {
     max-width: 1100px;
     max-height: 92vh;
     margin: 0 auto;
-    background: #fff;
+    background: var(--fw-surface);
+    color: var(--fw-text);
     border-radius: 8px;
     box-shadow: 0 10px 25px rgba(0, 0, 0, 0.25);
 }
@@ -258,7 +285,7 @@ body.fw-changelog-noscroll {
     left: 50%;
     width: 16px;
     height: 2px;
-    background: #404040;
+    background: var(--fw-text);
 }
 
 .fw-changelog-close::before {
@@ -274,7 +301,7 @@ body.fw-changelog-noscroll {
 }
 
 .fw-changelog-close:focus-visible {
-    outline: 2px solid #404040;
+    outline: 2px solid var(--fw-text);
     outline-offset: 2px;
 }
 

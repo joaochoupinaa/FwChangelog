@@ -23,6 +23,7 @@ editor, for every template, and a dashboard lists the changes across all pages.
 - Consecutive changes to the same field by the same user are merged into one
   entry, so autosaves and quick re-saves do not flood the history.
 - Old entries are deleted automatically after a configurable retention period.
+- Follows the light and dark mode of the default (Konkat) admin theme.
 
 ## Requirements
 
